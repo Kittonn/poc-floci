@@ -1,0 +1,8 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "LambdaFunctionArn": "arn:aws:lambda:ap-southeast-1:000000000000:function:s3-trigger-create-ecs",
+      "Events": ["s3:ObjectCreated:*"]
+    }
+  ]
+}
