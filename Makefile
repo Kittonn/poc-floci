@@ -4,6 +4,8 @@ ZIP_FILE=lambda_function.zip
 FUNCTION_NAME=s3-trigger-create-ecs
 BUCKET_NAME=my-bucket
 REGION=ap-southeast-1
+CLUSTER_NAME=hello-ecs
+TASK_DEF_NAME=hello-ecs-task-def
 
 ACCOUNT_ID = $(shell aws sts get-caller-identity --query "Account" --output text --endpoint-url $(AWS_ENDPOINT_URL))
 ROLE_ARN = $(shell aws iam get-role --role-name lambda-role --query "Role.Arn" --output text --endpoint-url $(AWS_ENDPOINT_URL) 2>/dev/null)
@@ -41,14 +43,14 @@ update-function:
 
 lambda-trigger-config:
 	aws lambda add-permission \
-    --function-name ${FUNCTION_NAME} \
-    --statement-id s3-invoke \
-    --action lambda:InvokeFunction \
-		--principal s3.amazonaws.com \
-		--source-arn "arn:aws:s3:::${BUCKET_NAME}" \
-		--source-account ${ACCOUNT_ID} \
-		--endpoint-url ${AWS_ENDPOINT_URL} \
-		--region ${REGION}
+  --function-name ${FUNCTION_NAME} \
+  --statement-id s3-invoke \
+  --action lambda:InvokeFunction \
+	--principal s3.amazonaws.com \
+	--source-arn "arn:aws:s3:::${BUCKET_NAME}" \
+	--source-account ${ACCOUNT_ID} \
+	--endpoint-url ${AWS_ENDPOINT_URL} \
+	--region ${REGION}
 
 s3-send-event-to-lambda:
 	aws s3api put-bucket-notification-configuration \
@@ -59,4 +61,16 @@ s3-send-event-to-lambda:
 
 
 upload-file:
-	aws s3 cp ./data/sample.txt s3://${BUCKET_NAME} --endpoint-url ${AWS_ENDPOINT_URL} --region ${REGION}
+	aws s3 cp ./data/sample6.txt s3://${BUCKET_NAME} --endpoint-url ${AWS_ENDPOINT_URL} --region ${REGION}
+
+create-ecs-cluster:
+	aws ecs create-cluster \
+	--cluster-name ${CLUSTER_NAME} \
+	--endpoint-url ${AWS_ENDPOINT_URL} \
+	--region ${REGION}
+
+register-task-def:
+	aws ecs register-task-definition \
+	--cli-input-json file://ecs/ecs-task-def.json \
+	--endpoint-url ${AWS_ENDPOINT_URL} \
+	--region ${REGION}
