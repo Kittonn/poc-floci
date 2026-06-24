@@ -1,4 +1,5 @@
 export AWS_ENDPOINT_URL=http://localhost:4566
+export AWS_PAGER=
 
 ZIP_FILE=lambda_function.zip
 FUNCTION_NAME=s3-trigger-create-ecs
@@ -7,9 +8,26 @@ REGION=ap-southeast-1
 CLUSTER_NAME=hello-ecs
 TASK_DEF_NAME=hello-ecs-task-def
 
-ACCOUNT_ID = $(shell aws sts get-caller-identity --query "Account" --output text --endpoint-url $(AWS_ENDPOINT_URL))
-ROLE_ARN = $(shell aws iam get-role --role-name lambda-role --query "Role.Arn" --output text --endpoint-url $(AWS_ENDPOINT_URL) 2>/dev/null)
+get-account-id:
+	$(eval ACCOUNT_ID := $(shell aws sts get-caller-identity --query "Account" --output text --endpoint-url $(AWS_ENDPOINT_URL)))
 
+get-role-arn:
+	$(eval ROLE_ARN := $(shell aws iam get-role --role-name lambda-role --query "Role.Arn" --output text --endpoint-url $(AWS_ENDPOINT_URL) 2>/dev/null))
+
+
+setup: \
+	infra-up \
+	wait-infra \
+	create-bucket \
+	create-lambda-role \
+	zip-function \
+	deploy-function \
+	lambda-trigger-config \
+	s3-send-event-to-lambda \
+	create-ecs-cluster \
+	register-task-def \
+	build-ecs
+	
 create-bucket:
 	aws s3 mb s3://${BUCKET_NAME} --endpoint-url ${AWS_ENDPOINT_URL} --region ${REGION}
 
@@ -23,7 +41,7 @@ create-lambda-role:
 zip-function:
 	cd ./lambda && zip -r ../${ZIP_FILE} . && cd ..
 
-deploy-function:
+deploy-function: get-role-arn
 	aws lambda create-function \
 	--function-name ${FUNCTION_NAME} \
 	--handler main.lambda_handler \
@@ -41,7 +59,7 @@ update-function:
 	--endpoint-url ${AWS_ENDPOINT_URL} \
 	--region ${REGION}
 
-lambda-trigger-config:
+lambda-trigger-config: get-account-id
 	aws lambda add-permission \
   --function-name ${FUNCTION_NAME} \
   --statement-id s3-invoke \
@@ -61,7 +79,7 @@ s3-send-event-to-lambda:
 
 
 upload-file:
-	aws s3 cp ./data/sample6.txt s3://${BUCKET_NAME} --endpoint-url ${AWS_ENDPOINT_URL} --region ${REGION}
+	aws s3 cp ${FILE} s3://${BUCKET_NAME} --endpoint-url ${AWS_ENDPOINT_URL} --region ${REGION}
 
 create-ecs-cluster:
 	aws ecs create-cluster \
@@ -74,3 +92,6 @@ register-task-def:
 	--cli-input-json file://ecs/ecs-task-def.json \
 	--endpoint-url ${AWS_ENDPOINT_URL} \
 	--region ${REGION}
+
+build-ecs:
+	docker build -t hello-ecs ./ecs/hello-ecs
